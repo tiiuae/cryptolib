@@ -1,18 +1,11 @@
 
 /*
- * Home: https://github.com/insanum/ecies
- * Author: Eric Davis <edavis@insanum.com>
+ * Home: https://github.com/tiiuae/cryptolib.git
  */
 
 #include <stdio.h>
 #include <string.h>
-
-#include <openssl/bn.h>
-#include <openssl/ec.h>
-#include <openssl/ecdh.h>
-#include <openssl/pem.h>
-#include <openssl/rand.h>
-#include <openssl/evp.h>
+#include "ecies.h"
 
 #define err(fmt, ...)                                \
         do {                                         \
@@ -239,7 +232,7 @@ int aes_gcm_256b_decrypt(uint8_t  *ciphertext,
                          uint8_t   iv_len,
                          uint8_t  *tag,
                          size_t    tag_len,
-                         uint8_t **plaintext,     // out (must free)
+                         uint8_t **plaintext,     // out (caller should  free)
                          uint8_t  *plaintext_len) // out
 {
         EVP_CIPHER_CTX *ctx;
@@ -293,9 +286,9 @@ int aes_gcm_256b_decrypt(uint8_t  *ciphertext,
 int ecies_load_init_key(        char     *filename,
                                 EC_KEY  **ec_key,    // out
                                 int      *curve,     // out
-                                uint8_t **pubk,      // out (must free)
+                                uint8_t **pubk,      // out (caller should  free)
                                 size_t   *pubk_len,  // out
-                                uint8_t **privk,     // out (must free)
+                                uint8_t **privk,     // out (caller should  free)
                                 size_t   *privk_len) // out
 {
         const EC_GROUP *ec_group = NULL;
@@ -346,13 +339,13 @@ int ecies_encrypt_message(      uint8_t        *msg,
                                 int             curve,
                                 const uint8_t  *peer_pubk,
                                 const uint8_t   peer_pubk_len,
-                                uint8_t       **epubk,          // out (must free)
+                                uint8_t       **epubk,          // out (caller should  free)
                                 size_t         *epubk_len,      // out
-                                uint8_t       **iv,             // out (must free)
+                                uint8_t       **iv,             // out (caller should  free)
                                 uint8_t        *iv_len,         // out
-                                uint8_t       **tag,            // out (must free)
+                                uint8_t       **tag,            // out (caller should  free)
                                 uint8_t        *tag_len,        // out
-                                uint8_t       **ciphertext,     // out (must free)
+                                uint8_t       **ciphertext,     // out (caller should  free)
                                 uint8_t        *ciphertext_len) // out
 {
         uint8_t *skey      = NULL; // DH generated shared symmetric key
@@ -423,80 +416,6 @@ int ecies_decrypt_message(      const EC_KEY  *ec_key,
         log("--------------------------------------------------------------------\n");
         free(skey);
         free(plaintext);
-
-        return 0;
-}
-
-int main(int argc, char * argv[])
-{
-        EC_KEY *ec_key = NULL; // EC key from key file
-
-        // Receiver's EC Key (public, private, curve)
-        uint8_t *pubk      = NULL;
-        size_t   pubk_len  = 0;
-        uint8_t *privk     = NULL;
-        size_t   privk_len = 0;
-        int      curve;
-
-        // Transmitter's ephemeral public EC Key
-        uint8_t *epubk     = NULL;
-        size_t   epubk_len = 0;
-
-        // AES-GCM encrypted data (IV, authentication tag, ciphertext)
-        uint8_t *iv             = NULL;
-        uint8_t  iv_len         = 0;
-        uint8_t *tag            = NULL;
-        uint8_t  tag_len        = 0;
-        uint8_t *ciphertext     = NULL;
-        uint8_t  ciphertext_len = 0;
-        uint8_t *message        = 0;
-        if (argc != 3)
-                err("Specify init key file in DER format and message within quotes\n"
-                    "Usage: %s <file.der> <\"message\">\n", argv[0]);
-
-        /* assign the message to be encrypted to "message" from arg */
-        message = (uint8_t *)argv[2];
-        
-        /* Loads the initialization EC key. */
-        ecies_load_init_key(argv[1], &ec_key, &curve,
-                                &pubk, &pubk_len, &privk, &privk_len);
-
-        /*
-         * Now initialization key loaded:
-         *   - 'ppub'  holds the public key in uncompressed binary format
-         *   - 'ppriv' holds the private key in binary format
-         *   - 'curve' holds the curve name in ID format
-         */
-        log("\n --> Encrypt the data by generating ephemeral key pair <--\n\n");
-
-        /* ECIES Transmitter sends encrypted message to the Receiver. */
-        ecies_encrypt_message(  message, (strlen((const char *)message) + 1),
-                                curve, pubk, pubk_len,
-                                &epubk, &epubk_len,
-                                &iv, &iv_len, &tag, &tag_len,
-                                &ciphertext, &ciphertext_len);
-
-        /*
-         * Now message is encrypted:
-         *   - 'epubk'      holds the ephemeral public key in uncompressed
-         *                  binary format, generated by the transmitter
-         *   - 'iv'         holds the IV used for the AES-GCM encrypted data
-         *   - 'tag'        holds the AES-GCM auth tag of the encrypted data
-         *   - 'ciphertext' holds encrypted message data
-         */
-        log("\n--> sends ephemeral public key, IV, tag, ciphertxt <--\n\n");
-
-        /* ECIES Receiver receives encrypted message from the Transmitter. */
-        ecies_decrypt_message(  ec_key, epubk, epubk_len,
-                                iv, iv_len, tag, tag_len,
-                                ciphertext, ciphertext_len);
-
-        free(iv);
-        free(tag);
-        free(ciphertext);
-        free(epubk);
-        free(pubk);
-        free(privk);
 
         return 0;
 }
