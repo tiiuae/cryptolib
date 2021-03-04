@@ -33,7 +33,7 @@ void dump_hex(char *label, uint8_t *buf, int len)
 /* Convert an EC key's public key to a binary array. */
 int ec_key_public_key_to_bin(const EC_KEY  *ec_key,
                              uint8_t      **pubk,     // out (must free)
-                             size_t        *pubk_len) // out
+                             uint32_t        *pubk_len) // out
 {
         const EC_GROUP *ec_group   = EC_KEY_get0_group(ec_key);
         const EC_POINT *pub        = EC_KEY_get0_public_key(ec_key);
@@ -61,7 +61,7 @@ int ec_key_public_key_to_bin(const EC_KEY  *ec_key,
 /* Convert an EC key's private key to a binary array. */
 int ec_key_private_key_to_bin(const EC_KEY  *ec_key,
                               uint8_t      **privk,     // out (must free)
-                              size_t        *privk_len) // out
+                              uint32_t        *privk_len) // out
 {
         const BIGNUM *priv = EC_KEY_get0_private_key(ec_key);
 
@@ -77,7 +77,7 @@ int ec_key_private_key_to_bin(const EC_KEY  *ec_key,
 /* Convert a public key binary array to an EC point. */
 int ec_key_public_key_bin_to_point(const EC_GROUP  *ec_group,
                                    const uint8_t   *pubk,
-                                   const size_t     pubk_len,
+                                   const uint32_t     pubk_len,
                                    EC_POINT       **pubk_point) // out
 {
         BIGNUM   *pubk_bn;
@@ -101,11 +101,11 @@ int ec_key_public_key_bin_to_point(const EC_GROUP  *ec_group,
 /* (TX) Generate an ephemeral EC key and associated shared symmetric key. */
 int ecies_transmitter_generate_symkey(const int       curve,
                                       const uint8_t  *peer_pubk,
-                                      const size_t    peer_pubk_len,
+                                      const uint32_t    peer_pubk_len,
                                       uint8_t       **epubk,         // out (must free)
-                                      size_t         *epubk_len,     // out
+                                      uint32_t         *epubk_len,     // out
                                       uint8_t       **skey,          // out (must free)
-                                      size_t         *skey_len)      // out
+                                      uint32_t         *skey_len)      // out
 {
         EC_KEY         *ec_key          = NULL; /* ephemeral keypair */
         const EC_GROUP *ec_group        = NULL;
@@ -142,9 +142,9 @@ int ecies_transmitter_generate_symkey(const int       curve,
 /* (RX) Generate the shared symmetric key. */
 int ecies_receiver_generate_symkey(const EC_KEY   *ec_key,
                                    const uint8_t  *peer_pubk,
-                                   const size_t    peer_pubk_len,
+                                   const uint32_t    peer_pubk_len,
                                    uint8_t       **skey,          // out (must free)
-                                   size_t         *skey_len)      // out
+                                   uint32_t         *skey_len)      // out
 {
         const EC_GROUP *ec_group        = EC_KEY_get0_group(ec_key);
         EC_POINT       *peer_pubk_point = NULL;
@@ -175,10 +175,10 @@ int aes_gcm_256b_encrypt(uint8_t  *plaintext,
                          uint8_t **tag,            // out (must free)
                          uint8_t  *tag_len,        // out
                          uint8_t **ciphertext,     // out (must free)
-                         uint8_t  *ciphertext_len) // out
+                         uint32_t  *ciphertext_len) // out
 {
         EVP_CIPHER_CTX *ctx;
-        int len;
+        uint32_t len;
 
         /* Allocate buffers for the IV, tag, and ciphertext. */
         *iv_len = 12;
@@ -204,14 +204,14 @@ int aes_gcm_256b_encrypt(uint8_t  *plaintext,
           * required
           */
         if (aad && aad_len)
-            EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len);
+            EVP_EncryptUpdate(ctx, NULL, (int *)&len, aad, aad_len);
 
         /* Provide the text to be encrypted, and obtain the encrypted output. */
-        EVP_EncryptUpdate(ctx, *ciphertext, &len, plaintext, plaintext_len);
+        EVP_EncryptUpdate(ctx, *ciphertext, (int *)&len, plaintext, plaintext_len);
         *ciphertext_len = len;
 
         /* Finalize the encryption. */
-        EVP_EncryptFinal_ex(ctx, (*ciphertext + len), &len);
+        EVP_EncryptFinal_ex(ctx, (*ciphertext + len), (int *)&len);
         *ciphertext_len += len;
 
         /* Get the authentication tag. */
@@ -224,7 +224,7 @@ int aes_gcm_256b_encrypt(uint8_t  *plaintext,
 
 /* Decrypt ciphertext data using 256b AES-GCM. */
 int aes_gcm_256b_decrypt(uint8_t  *ciphertext,
-                         size_t    ciphertext_len,
+                         uint32_t    ciphertext_len,
                          uint8_t  *skey,
                          uint8_t  *aad,
                          size_t    aad_len,
@@ -233,10 +233,10 @@ int aes_gcm_256b_decrypt(uint8_t  *ciphertext,
                          uint8_t  *tag,
                          size_t    tag_len,
                          uint8_t **plaintext,     // out (caller should  free)
-                         uint8_t  *plaintext_len) // out
+                         uint32_t  *plaintext_len) // out
 {
         EVP_CIPHER_CTX *ctx;
-        int len, rc;
+        uint32_t len, rc;
 
         /* Allocate a buffer for the plaintext. */
         *plaintext = OPENSSL_malloc(ciphertext_len);
@@ -255,10 +255,10 @@ int aes_gcm_256b_decrypt(uint8_t  *ciphertext,
 
         /* Provide any AAD data. */
         if (aad && aad_len)
-                EVP_DecryptUpdate(ctx, NULL, &len, aad, aad_len);
+                EVP_DecryptUpdate(ctx, NULL, (int *)&len, aad, aad_len);
 
         /* Provide the ciphertext to be decrypted, and obtain the plaintext output. */
-        EVP_DecryptUpdate(ctx, *plaintext, &len, ciphertext, ciphertext_len);
+        EVP_DecryptUpdate(ctx, *plaintext, (int *)&len, ciphertext, ciphertext_len);
         *plaintext_len = len;
 
         /* Set the expected tag value. */
@@ -268,7 +268,7 @@ int aes_gcm_256b_decrypt(uint8_t  *ciphertext,
          * Finalize the decryption. A positive return value indicates success, 
          * anything else is a failure - the plaintext is not trustworthy. 
          */
-        rc = EVP_DecryptFinal_ex(ctx, (*plaintext + len), &len);
+        rc = EVP_DecryptFinal_ex(ctx, (*plaintext + len), (int *)&len);
 
         /* Clean up */
         EVP_CIPHER_CTX_free(ctx);
@@ -287,9 +287,9 @@ int ecies_load_init_key(        char     *filename,
                                 EC_KEY  **ec_key,    // out
                                 int      *curve,     // out
                                 uint8_t **pubk,      // out (caller should  free)
-                                size_t   *pubk_len,  // out
+                                uint32_t   *pubk_len,  // out
                                 uint8_t **privk,     // out (caller should  free)
-                                size_t   *privk_len) // out
+                                uint32_t   *privk_len) // out
 {
         const EC_GROUP *ec_group = NULL;
         BIO            *bio_key  = NULL;
@@ -325,7 +325,7 @@ int ecies_load_init_key(        char     *filename,
         /* Get the EC key's curve name. */
         *curve = EC_GROUP_get_curve_name(ec_group);
 
-        log("[Step1]--> Initialization key LOADED FROM FILE  <--\n\n");
+        log("--> Initialization key LOADED FROM FILE  <--\n\n");
         dump_hex("pubkey", *pubk, *pubk_len);
         dump_hex("privkey", *privk, *privk_len);
         log("%-10s: %s(%d)\n", "curve", OBJ_nid2sn(*curve), *curve);
@@ -340,16 +340,16 @@ int ecies_encrypt_message(      uint8_t        *msg,
                                 const uint8_t  *peer_pubk,
                                 const uint8_t   peer_pubk_len,
                                 uint8_t       **epubk,          // out (caller should  free)
-                                size_t         *epubk_len,      // out
+                                uint32_t         *epubk_len,      // out
                                 uint8_t       **iv,             // out (caller should  free)
                                 uint8_t        *iv_len,         // out
                                 uint8_t       **tag,            // out (caller should  free)
                                 uint8_t        *tag_len,        // out
                                 uint8_t       **ciphertext,     // out (caller should  free)
-                                uint8_t        *ciphertext_len) // out
+                                uint32_t        *ciphertext_len) // out
 {
         uint8_t *skey      = NULL; // DH generated shared symmetric key
-        size_t   skey_len  = 0;
+        uint32_t   skey_len  = 0;
 
         /* Generate the shared symmetric key (transmitter). */
         ecies_transmitter_generate_symkey(curve, peer_pubk, peer_pubk_len,
@@ -358,7 +358,7 @@ int ecies_encrypt_message(      uint8_t        *msg,
                 err("Invalid symkey length %lub (expecting 256b)\n",
                     (skey_len * 8));
 
-        log("[Step2]-->  [Encrypt] EPHEMERAL EC PUBLIC KEY AND SYMMETRIC KEY  <--\n\n");
+        log("-->  [Encrypt] EPHEMERAL EC PUBLIC KEY AND SYMMETRIC KEY  <--\n\n");
         dump_hex("epubkey", *epubk, *epubk_len);
         dump_hex("symkey", skey, skey_len);
         log("--------------------------------------------------------------------\n");
@@ -367,13 +367,235 @@ int ecies_encrypt_message(      uint8_t        *msg,
                              iv, iv_len, tag, tag_len,
                              ciphertext, ciphertext_len);
 
-        log("[Step2.1]-->  AES-256-GCM ENCRYPTED DATA  <--\n\n");
+        log("-->  AES-256-GCM ENCRYPTED DATA  <--\n\n");
         log("%-10s: (%lu) %s\n", "plain-tx", msg_len, msg); // it's a string
         dump_hex("iv", *iv, *iv_len);
         dump_hex("tag", *tag, *tag_len);
         dump_hex("cipher", *ciphertext, *ciphertext_len);
         log("--------------------------------------------------------------------\n");
         free(skey);
+
+        return 0;
+}
+
+void base64_encode(const char * input,char** output,int in_length)
+{
+    BIO* bmem = NULL;
+    BIO* b64 = NULL;
+    BUF_MEM* bptr = NULL;
+    b64 = BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bmem = BIO_new(BIO_s_mem());
+    b64 = BIO_push(b64, bmem);
+    BIO_write(b64, input, in_length);
+    BIO_flush(b64);
+    BIO_get_mem_ptr(b64, &bptr);
+    *output = (char *)malloc(bptr->length + 1);
+    memcpy(*output, bptr->data, bptr->length);
+    (*output)[bptr->length] = 0;
+    BIO_free_all(b64);
+
+    return;
+}
+
+void base64_decode(const char * input, char** output,int* out_length)
+{
+    BIO* b64 = NULL;
+    BIO* bio = NULL;
+    b64 = BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio = BIO_new_mem_buf(input, strlen(input));
+    bio = BIO_push(b64, bio);
+    *output = (char*)malloc(strlen(input));
+    *out_length = BIO_read(bio, *output, strlen(input));
+    BIO_free_all(bio);
+
+    return;
+}
+
+int ecies_encrypted_payload_write(
+                                char          *payload_fname,
+                                int           curve,
+                                uint8_t       *epubk,      
+                                uint32_t        epubk_len,
+                                uint8_t       *iv,
+                                uint8_t       iv_len,
+                                uint8_t       *tag,
+                                uint8_t       tag_len,
+                                uint8_t       *ciphertext,
+                                uint32_t       ciphertext_len)
+{
+        int ret_val = 0;
+        unsigned char *output_buf = NULL;
+        FILE *fd = fopen(payload_fname, "wb");
+        if(fd == 0)
+        {
+                log("\n Function: ecies_encrypted_payload_write: File creation failed");
+                return -1;
+        }
+        uint8_t is_valid = (epubk_len > 0) && (iv_len > 0) && (tag_len > 0) && (ciphertext_len);
+
+        if(!is_valid)
+        {
+                log("\n Function: ecies_encrypted_payload_write: Invalid argument");
+                ret_val = -1;
+                goto cleanup;
+        }
+        
+        uint32_t buf_len = sizeof(curve)
+                         + epubk_len      + sizeof(epubk_len) 
+                         + iv_len         + sizeof(iv_len)
+                         + tag_len        + sizeof(tag_len)
+                         + ciphertext_len + sizeof(ciphertext_len);
+        
+        output_buf = OPENSSL_malloc(buf_len);
+        uint32_t offset = 0;
+        memset(output_buf, 0, buf_len);
+        
+        // write directly the curve
+        memcpy(output_buf, &curve, sizeof(curve));
+        offset += sizeof(curve);
+
+        // Write the epubk length and then epubk byte stream
+        memcpy((output_buf+offset), &epubk_len, sizeof(epubk_len));
+        offset += sizeof(epubk_len);
+
+        memcpy((output_buf+offset), epubk, epubk_len);
+        offset += epubk_len;
+
+        // Write the iv length and then iv byte stream
+        memcpy((output_buf+offset), &iv_len, sizeof(iv_len));
+        offset += sizeof(iv_len);
+
+        memcpy((output_buf + offset), iv, iv_len);
+        offset += iv_len;
+
+        // Write the tag length and then tag byte stream
+        memcpy((output_buf+offset), &tag_len, sizeof(tag_len));
+        offset += sizeof(tag_len);
+
+        memcpy((output_buf+offset), tag, tag_len);
+        offset += tag_len;
+
+        memcpy((output_buf + offset), &ciphertext_len, sizeof(ciphertext_len));
+        offset += sizeof(ciphertext_len);
+
+        memcpy((output_buf + offset), ciphertext, ciphertext_len);
+        offset += ciphertext_len;
+
+        size_t bytes_written = fwrite(output_buf, 1, buf_len, fd);
+        if(bytes_written != buf_len)
+        {
+                log("\n Function: ecies_encrypted_payload_write: file write error");
+                ret_val = -1;
+        }
+
+cleanup:
+        fclose(fd);
+        if(output_buf != NULL)
+                OPENSSL_free(output_buf);
+
+        return ret_val;
+}
+
+int32_t readfile(char *filename, unsigned char **file_content) {
+    
+    FILE *fd = fopen(filename, "rb");
+    if(fd == NULL) {
+        log("\n Function: readfile: file read error");
+        return -1;
+    }
+
+    // Determine size of the file
+    fseek(fd, 0, SEEK_END);
+    int32_t file_len = ftell(fd);
+    fseek(fd, 0, SEEK_SET);
+
+    // Allocate space for the file
+    *file_content = (unsigned char*)malloc(file_len);
+    if(*file_content == NULL) {
+        log("\n Function: readfile: memory allocation failed");
+        return -1;
+    }
+    // Read the file_content into the buffer
+    size_t bytes_read = fread(*file_content, 1, file_len, fd);
+
+    if(bytes_read != file_len) {
+       log("\n Function: readfile: file read error, couldnt read requested amount of data");
+       return -1;
+    }
+    fclose(fd);
+
+    return file_len;
+}
+
+int ecies_encrypted_payload_read(
+                                char          *payload_fname,
+                                int           curve,
+                                uint8_t       **epubk,      
+                                uint32_t        *epubk_len_r,
+                                uint8_t       **iv,
+                                uint8_t       *iv_len,
+                                uint8_t       **tag,
+                                uint8_t       *tag_len,
+                                uint8_t       **ciphertext,
+                                uint32_t       *ciphertext_len)
+{
+        uint8_t *file_content = NULL;
+        if(payload_fname == 0)
+        {
+                log("\n Function: ecies_encrypted_payload_read: File name invalid");
+                return -1;
+        }
+
+        uint8_t is_valid = (epubk_len_r != 0) && (iv_len != 0) && (tag_len != 0) && (ciphertext_len != 0);
+
+        if(!is_valid)
+        {
+                log("\n Function: ecies_encrypted_payload_read: Invalid argument");
+                return -1;
+        }
+
+        int32_t buf_len = readfile(payload_fname, &file_content);
+        uint32_t offset = 0;
+        
+        curve = *(int *) (file_content + offset);
+        offset += sizeof(curve);
+
+        // Read the epubk length and then epubk byte stream
+        *epubk_len_r = *(uint32_t *) (file_content + offset);
+        offset += sizeof(uint32_t);
+
+        *epubk = (uint8_t *) OPENSSL_malloc(*epubk_len_r);
+        memset(*epubk, 0 , *epubk_len_r);
+        memcpy(*epubk, (file_content+offset), *epubk_len_r);
+        offset += *epubk_len_r;
+
+        // Read the iv length and then iv byte stream
+        *iv_len = *(file_content + offset);
+        offset += sizeof(uint8_t);
+        *iv = OPENSSL_malloc(*iv_len);
+        memset(*iv, 0, *iv_len);
+
+        memcpy(*iv, (file_content + offset) ,*iv_len);
+        offset += *iv_len;
+
+        // Read the tag length and then tag byte stream
+        *tag_len = *(file_content + offset);
+        offset += sizeof(uint8_t);
+
+        *tag = OPENSSL_malloc(*tag_len);
+        memset(*tag, 0, *tag_len);
+        memcpy(*tag, (file_content + offset), *tag_len);
+        offset += *tag_len;
+
+        // Read cipher text length and then cipher text stream
+        *ciphertext_len = *(uint32_t *)(file_content + offset);
+        offset += sizeof(uint32_t);
+        *ciphertext = OPENSSL_malloc(*ciphertext_len);
+        memset(*ciphertext, 0, *tag_len);
+        memcpy(*ciphertext, (file_content + offset), *ciphertext_len);
+        offset += *ciphertext_len;
 
         return 0;
 }
@@ -390,11 +612,11 @@ int ecies_decrypt_message(      const EC_KEY  *ec_key,
 {
         // Shared symmetric encryption key (DH generated)
         uint8_t *skey     = NULL;
-        size_t   skey_len = 0;
+        uint32_t   skey_len = 0;
 
         // Decrypted data (plaintext)
         uint8_t *plaintext     = NULL;
-        uint8_t  plaintext_len = 0;
+        uint32_t  plaintext_len = 0;
 
         /* Generate the shared symmetric key (receiver). */
         ecies_receiver_generate_symkey(ec_key, peer_pubk, peer_pubk_len,
@@ -403,7 +625,7 @@ int ecies_decrypt_message(      const EC_KEY  *ec_key,
                 err("Invalid symkey length %lub (expecting 256b)\n",
                     (skey_len * 8));
 
-        log("[Step3]--> [Decrypt] Generated SYMMETRIC KEY  <--\n\n");
+        log("--> [Decrypt] Generated SYMMETRIC KEY  <--\n\n");
         dump_hex("symkey", skey, skey_len);
         log("--------------------------------------------------------------------\n");
         /* Decrypt the data using 256b AES-GCM. */
@@ -411,7 +633,7 @@ int ecies_decrypt_message(      const EC_KEY  *ec_key,
                              iv, iv_len, tag, tag_len,
                              &plaintext, &plaintext_len);
 
-        log("[Step3.1]-->  [Decrypt] AES-GCM DECRYPTED DATA  <--\n\n");
+        log("-->  [Decrypt] AES-GCM DECRYPTED DATA  <--\n\n");
         log("%-10s: (%d) %s\n", "plain-rx", plaintext_len, plaintext);
         log("--------------------------------------------------------------------\n");
         free(skey);

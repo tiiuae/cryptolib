@@ -48,44 +48,66 @@ Run the programs with a single filename argument specifying the DER file that
 contains the Receiver's EC key.
 
 ```
-ecies ➤ ./ecies ecc_key.der "testing"
+For encryption
+ecies ➤ ./ecies_encrypt ecc_key.der "testing ecies"
+
+This will generate a payload.enc file which contains the encrypted data along with metadata
+
+For Decryption
+ecies ➤ ./ecies_encrypt ecc_key.der
+
+this will read the payload.enc file and decrypt the data
 ```
 
 ## Example
 
 ```
-ecies ➤ ./ecies ecc_key.der "testing"                                                      
-[Step1]--> Initialization key LOADED FROM FILE  <--
+ecies ➤ ./ecies_encrypt ecc_key.der "testing ecies"                                                                                                          git:main*
+--> Initialization key LOADED FROM FILE  <--
 
-pubkey    : 04e789a243af0e1cad22effabae7461c63469c2a5df9fd48b3e5daf848595889f9ca8c8f20329f37af0afe1b908d9a673e4abf358a9f77b30f06b69d07e88dc9ed
-privkey   : 0dc957099ac71cec80e51245634c8e4a52357b41163da6ccbf532677e9285277
+pubkey    : 04ebd2c913d5054194762571fdde97966c4566361aa008375d6c3b22c9de9970d2fdbac13c8f560b45a0c450976b705516b959358c5681396eae6386cf6edf08cb
+privkey   : 1270a9583befc0acf115f13300096fb97b491f1d11368127018cf7974ec805ec
 curve     : prime256v1(415)
 --------------------------------------------------------------------
 
  --> Encrypt the data by generating ephemeral key pair <--
 
-[Step2]-->  [Encrypt] EPHEMERAL EC PUBLIC KEY AND SYMMETRIC KEY  <--
+-->  [Encrypt] EPHEMERAL EC PUBLIC KEY AND SYMMETRIC KEY  <--
 
-epubkey   : 0451f9423d21a40b4badf7e98d643ad5df00ab8ac4f216a36590847d0027c670e8fa3a14fef8058ea71c6f6cf4005d1a04c1bb38108de832b25f2c96c6a7203e5e
-symkey    : dc517285057212612f4791e91074f73bde103159092762fee617cb605aa21fda
+epubkey   : 04b6bffa2d0fe1fd353f283881b431273f207bac160d611ebd5ddf01e2324303a023f25e83fb75fc2073af64f34cd83809e082843212fb01179205ebcc1d0cdc3b
+symkey    : 4755276eae5fb68a17149dc8e00a47613181ca0d2dde1028f22c76796dec021b
 --------------------------------------------------------------------
-[Step2.1]-->  AES-256-GCM ENCRYPTED DATA  <--
+-->  AES-256-GCM ENCRYPTED DATA  <--
 
-plain-tx  : (8) testing
-iv        : 017c95c524f09f171de00623
-tag       : 6847db923ff6865809919b5f
-cipher    : db086eff6c0d621c
+plain-tx  : (14) testing ecies
+iv        : 12d10f73d2cf62ef53fa5e96
+tag       : 605703d966b3b7fab4c6a8c4
+cipher    : aa03bd5e476bf409a7d21c9cb168
 --------------------------------------------------------------------
 
---> sends ephemeral public key, IV, tag, ciphertxt <--
+--> Write curve, ephemeral public key, IV, tag, ciphertxt to the payload.enc file<--
 
-[Step3]--> [Decrypt] Generated SYMMETRIC KEY  <--
 
-symkey    : dc517285057212612f4791e91074f73bde103159092762fee617cb605aa21fda
+--> ecies_encrypted_payload_write finished, output written into payload.enc <--
+
+ecies ➤                                                                                                                                                      git:main*
+ecies ➤ ./ecies_decrypt ecc_key.der                                                                                                                          git:main*
+--> Initialization key LOADED FROM FILE  <--
+
+pubkey    : 04ebd2c913d5054194762571fdde97966c4566361aa008375d6c3b22c9de9970d2fdbac13c8f560b45a0c450976b705516b959358c5681396eae6386cf6edf08cb
+privkey   : 1270a9583befc0acf115f13300096fb97b491f1d11368127018cf7974ec805ec
+curve     : prime256v1(415)
 --------------------------------------------------------------------
-[Step3.1]-->  [Decrypt] AES-GCM DECRYPTED DATA  <--
 
-plain-rx  : (8) testing
+--> ecies_encrypted_payload_read finished <--
+
+--> [Decrypt] Generated SYMMETRIC KEY  <--
+
+symkey    : 4755276eae5fb68a17149dc8e00a47613181ca0d2dde1028f22c76796dec021b
 --------------------------------------------------------------------
-ecies ➤
+-->  [Decrypt] AES-GCM DECRYPTED DATA  <--
+
+plain-rx  : (14) testing ecies
+--------------------------------------------------------------------
+ecies ➤                                                                                            
 ```
